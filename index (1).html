@@ -1,0 +1,168 @@
+
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>TLAG Müşteri Memnuniyeti</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f5faff;
+      margin: 0;
+      padding: 0;
+    }
+    header {
+      background-color: #004d61;
+      color: white;
+      padding: 20px;
+      text-align: center;
+    }
+    .dropdowns {
+      display: flex;
+      justify-content: center;
+      margin: 20px;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+    select {
+      padding: 10px;
+      font-size: 16px;
+      border-radius: 6px;
+    }
+    table {
+      width: 95%;
+      margin: auto;
+      border-collapse: collapse;
+      background-color: white;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    th, td {
+      padding: 12px;
+      border-bottom: 1px solid #ddd;
+      text-align: left;
+    }
+    th {
+      background-color: #e0f7fa;
+    }
+    .summary {
+      display: flex;
+      justify-content: center;
+      gap: 25px;
+      margin-top: 20px;
+      flex-wrap: wrap;
+    }
+    .summary-box {
+      background: #fff;
+      border-left: 6px solid #0077b6;
+      padding: 15px 25px;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>TLAG Müşteri Memnuniyeti Paneli</h1>
+    <p>Kritik istasyon analizi - Filtreleme ve Simülasyon</p>
+  </header>
+
+  <div class="dropdowns">
+    <select id="nor-filter" onchange="filterData()"><option value="">NOR Seç</option></select>
+    <select id="district-filter" onchange="filterData()"><option value="">District Seç</option></select>
+  </div>
+
+  <div class="summary" id="summary-boxes"></div>
+
+  <table id="result-table">
+    <thead>
+      <tr>
+        <th>ROC</th>
+        <th>İstasyon</th>
+        <th>Segment</th>
+        <th>Skor</th>
+        <th>Transaction</th>
+        <th>NOR</th>
+        <th>District</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <script>
+    const embeddedData = [
+      {roc:"5445",istasyon:"SUNGURLU-ÇARŞAMBA",segment:"Primitive",skor:54.9,transaction:20581,nor:"SAMSUN",district:"ANKARA KUZEY BÖLGE"},
+      {roc:"5450",istasyon:"GÜMÜŞOVA-DELTA",segment:"My Precious",skor:51.3,transaction:24810,nor:"SAMSUN",district:"ANKARA KUZEY BÖLGE"},
+      {roc:"5401",istasyon:"KOCAELİ-GEBZE",segment:"Primitive",skor:58.1,transaction:17950,nor:"KOCAELİ",district:"MARMARA GÜNEY"}
+    ];
+
+    let filteredData = [...embeddedData];
+
+    function populateFilters() {
+      const nors = [...new Set(embeddedData.map(d => d.nor))].sort();
+      const districts = [...new Set(embeddedData.map(d => d.district))].sort();
+      document.getElementById('nor-filter').innerHTML = '<option value="">NOR Seç</option>' +
+        nors.map(n => `<option value="${n}">${n}</option>`).join('');
+      document.getElementById('district-filter').innerHTML = '<option value="">District Seç</option>' +
+        districts.map(d => `<option value="${d}">${d}</option>`).join('');
+    }
+
+    function getAvgTransactionByKey(key, type) {
+      const group = embeddedData.filter(row => row[type] === key);
+      const sum = group.reduce((acc, cur) => acc + cur.transaction, 0);
+      return group.length ? sum / group.length : 0;
+    }
+
+    function filterData() {
+      const norVal = document.getElementById("nor-filter").value;
+      const distVal = document.getElementById("district-filter").value;
+
+      filteredData = embeddedData.filter(row => {
+        const avgTransaction = getAvgTransactionByKey(row.nor, "nor");
+        return row.transaction > avgTransaction &&
+               (row.segment === "Primitive" || row.segment === "My Precious") &&
+               row.skor < 60 &&
+               (!norVal || row.nor === norVal) &&
+               (!distVal || row.district === distVal);
+      });
+
+      filteredData.sort((a, b) => b.transaction - a.transaction);
+      renderTable();
+      updateSummary();
+    }
+
+    function renderTable() {
+      const tbody = document.querySelector("#result-table tbody");
+      tbody.innerHTML = "";
+      filteredData.forEach(row => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${row.roc}</td>
+          <td>${row.istasyon}</td>
+          <td>${row.segment}</td>
+          <td>${row.skor.toFixed(2)}%</td>
+          <td>${row.transaction.toLocaleString("tr-TR")}</td>
+          <td>${row.nor}</td>
+          <td>${row.district}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function updateSummary() {
+      const total = filteredData.length;
+      const avgSkor = filteredData.reduce((acc, cur) => acc + cur.skor, 0) / total || 0;
+      const avgTransaction = filteredData.reduce((acc, cur) => acc + cur.transaction, 0) / total || 0;
+
+      document.getElementById("summary-boxes").innerHTML = `
+        <div class="summary-box"><strong>${total}</strong> İstasyon</div>
+        <div class="summary-box"><strong>${avgSkor.toFixed(2)}%</strong> Ortalama Skor</div>
+        <div class="summary-box"><strong>${Math.round(avgTransaction).toLocaleString("tr-TR")}</strong> Ortalama Transaction</div>
+      `;
+    }
+
+    populateFilters();
+    filterData();
+  </script>
+</body>
+</html>
